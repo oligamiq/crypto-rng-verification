@@ -1,7 +1,4 @@
-use std::{
-    marker::PhantomPinned,
-    pin::Pin,
-};
+use std::{marker::PhantomPinned, pin::Pin};
 
 use arc4::Arc4 as ImplArc4;
 
@@ -32,13 +29,13 @@ impl SeedWrapper {
 
 impl<'a> RNG for Arc4<'a> {
     fn new() -> Self {
-      let seed = gen_seed_u8_32();
-      let pinned_seed = Box::pin(SeedWrapper::new(seed));
-      let impl_arc4: ImplArc4 = ImplArc4::with_key(unsafe { &*pinned_seed.get_seed_ref() });
-      Self {
-        arc4: Some(impl_arc4),
-        _seed: pinned_seed,
-      }
+        let seed = gen_seed_u8_32();
+        let pinned_seed = Box::pin(SeedWrapper::new(seed));
+        let impl_arc4: ImplArc4 = ImplArc4::with_key(unsafe { &*pinned_seed.get_seed_ref() });
+        Self {
+            arc4: Some(impl_arc4),
+            _seed: pinned_seed,
+        }
     }
     fn get_random(&mut self) -> u64 {
         let mut buff = [0u8; 8];
