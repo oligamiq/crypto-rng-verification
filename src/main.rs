@@ -1,6 +1,7 @@
 use ranluxpp_rs::Ranluxpp;
-use randen::RandenRng;
 use yarrow_rs::Yarrow;
+pub mod rng;
+pub mod rng_trait;
 
 fn main() {
     println!("Hello, world!");
