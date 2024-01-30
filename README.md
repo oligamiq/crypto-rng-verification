@@ -121,10 +121,6 @@ https://github.com/pitdicker/small-rngs
 PRNG
 https://github.com/pitdicker/small-rngs
 
-## LFG
-PRNG
-https://en.wikipedia.org/wiki/Lagged_Fibonacci_generator
-
 ## ACORN
 PRNG
 Not use cryptographic
@@ -133,6 +129,16 @@ https://github.com/auronandace/acorn_prng
 ## Rule30
 PRNG
 https://github.com/chloe0x0/R30-rs MIT
+
+## MultiplyWithCarry
+not PRNG
+Not use cryptographic
+https://github.com/ferhatgec/prandom
+
+## LFG
+PRNG
+https://en.wikipedia.org/wiki/Lagged_Fibonacci_generator
+library not found
 
 ## rabbit
 https://github.com/RustCrypto/stream-ciphers/blob/master/rabbit

@@ -9,12 +9,31 @@ description = "A library for verifying the randomness of a random number generat
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# support
+rayon = "1.8"
+
 # PRNG
 arc4 = "0.1.0"
 rand_chacha = "0.3.1"
 yarrow-rs = "0.1.0"
-randen = "0.0.0" # use i128 so nightly
+mersenne-twister-m = "0.3.0"
+shishua_rs = { git = "https://github.com/dbartussek/shishua_rs", version = "0.1.0" }
+romu = "0.5.1"
+aes-prng = "0.2.0"
+rand_xoshiro = "0.6.0"
+xorshift = "0.1.3"
+fungtaai = "0.1.1"
+park-miller-carta-prng = "0.1.3"
+rand_hc = "0.3.2"
+nanorand = "0.7.0"
 ranluxpp-rs = "0.3.0"
+rand_isaac = "0.3.0"
+small-rngs = "0.0.1"
+rand_jitter = "0.4.0"
+randen = "0.0.0" # use i128 so nightly
+philox = "0.0.0"
+acorn_prng = "3.0.1"
+r30_rs = "0.1.0"
+prandom = "0.1.0"
+crypto_api_osrandom = "0.2.0"
 
-# support
-rayon = "1.8"
