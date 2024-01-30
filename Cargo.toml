@@ -1,0 +1,20 @@
+[package]
+name = "crypto-rng-verification"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["oligami <nziq53@gmail.com>"]
+keywords = ["ffi", "random", "ranluxpp", "ranlux++", "ranlux"]
+description = "A library for verifying the randomness of a random number generator."
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# PRNG
+arc4 = "0.1.0"
+rand_chacha = "0.3.1"
+yarrow-rs = "0.1.0"
+randen = "0.0.0" # use i128 so nightly
+ranluxpp-rs = "0.3.0"
+
+# support
+rayon = "1.8"
