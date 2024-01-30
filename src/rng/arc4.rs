@@ -32,7 +32,7 @@ impl SeedWrapper {
 
 impl<'a> RNG for Arc4<'a> {
     fn new() -> Self {
-        let arc4 = {
+        let mut arc4 = {
             let seed = gen_seed_u8_32();
             Self {
                 arc4: None,
@@ -40,10 +40,8 @@ impl<'a> RNG for Arc4<'a> {
             }
         };
         let impl_arc4: ImplArc4 = ImplArc4::with_key(unsafe { &*arc4._seed.get_seed_ref() });
-        Self {
-            arc4: Some(impl_arc4),
-            _seed: arc4._seed,
-        }
+        arc4.arc4 = Some(impl_arc4);
+        arc4
     }
     fn get_random(&mut self) -> u64 {
         let mut buff = [0u8; 8];
