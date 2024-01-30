@@ -913,7 +913,7 @@ dependencies = [
 [[package]]
 name = "shishua_rs"
 version = "0.1.0"
-source = "git+https://github.com/oligamiq/shishua_rs#7ed20c4e29778ea07e63bca3c8d53cd631af6a25"
+source = "git+https://github.com/oligamiq/shishua_rs#20743fa45e0b2648c5e15970944230e5c9f59f11"
 dependencies = [
  "byteorder",
  "packed_simd",
