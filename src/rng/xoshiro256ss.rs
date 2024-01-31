@@ -7,14 +7,22 @@ pub struct Xoshiro512StarStar {
     xoshiro512starstar: ImplXoshiro512StarStar,
 }
 
-impl RNG for Xoshiro512StarStar {
-    fn new() -> Self {
+impl Xoshiro512StarStar {
+    pub fn new() -> Self {
         Self {
             xoshiro512starstar: ImplXoshiro512StarStar::seed_from_u64(gen_seed_u64()),
         }
     }
+}
 
+impl RNG for Xoshiro512StarStar {
     fn get_random(&mut self) -> u64 {
         self.xoshiro512starstar.next_u64()
+    }
+}
+
+impl Default for Xoshiro512StarStar {
+    fn default() -> Self {
+        Self::new()
     }
 }

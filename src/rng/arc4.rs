@@ -27,8 +27,8 @@ impl SeedWrapper {
     }
 }
 
-impl<'a> RNG for Arc4<'a> {
-    fn new() -> Self {
+impl Arc4<'_> {
+    pub fn new() -> Self {
         let seed = gen_seed_u8_32();
         let pinned_seed = Box::pin(SeedWrapper::new(seed));
         let impl_arc4: ImplArc4 = ImplArc4::with_key(unsafe { &*pinned_seed.get_seed_ref() });
@@ -37,11 +37,20 @@ impl<'a> RNG for Arc4<'a> {
             _seed: pinned_seed,
         }
     }
+}
+
+impl<'a> RNG for Arc4<'_> {
     fn get_random(&mut self) -> u64 {
         let mut buff = [0u8; 8];
         if let Some(ref mut arc4) = self.arc4 {
             arc4.prga(buff.as_mut());
         }
         u8_to_u64(&buff)
+    }
+}
+
+impl Default for Arc4<'_> {
+    fn default() -> Self {
+        Self::new()
     }
 }

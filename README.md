@@ -45,7 +45,8 @@ https://github.com/astocko/xorshift CC0
 
 ## Fortuna
 PRNG
-https://github.com/quininer/fungtaai MIT
+// https://github.com/quininer/fungtaai MIT <br>
+https://github.com/DaGenix/rust-crypto
 
 ## splitmix64
 PRNG
