@@ -12,6 +12,13 @@ Ubuntu、Windowsともに動作を確認しています。
 精度が高いと思われるアルゴリズム
 ![Xorshift128](/img/Xorshift128.png)
 
+# リポジトリ
+https://github.com/oligamiq/crypto-rng-verification
+
+使っているライブラリ一覧
+！試したところ動かなかったライブラリは、幾つかフォークしたものを指しているため、注意。
+既に受け入れられたプルリクもあるため、順次直していく。
+
 # Crypto
 ! Information Missing
 ## rc4 (Arc4)
