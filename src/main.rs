@@ -56,18 +56,18 @@ impl App {
     /// Adds a message to the message list
     pub fn add_message(&mut self, message: String, data: (String, Vec<f64>)) -> Result<()> {
         {
-            let mut msg = self.messages.write();
+            let mut msg = self.messages.try_write().expect("failed!!!!!");
             msg.push((message, data.clone()));
         }
         // progress_gateから消す
         let index = {
-            let gate = self.progress_gage.read();
-            gate.iter()
+            let gate = self.progress_gage.try_read().expect("failed!!!!!");
+            (*gate).iter()
                 .position(|x| x.0 == data.0)
                 .ok_or(anyhow!("not found"))?
         };
         {
-            let mut gate = self.progress_gage.write();
+            let mut gate = self.progress_gage.try_write().expect("failed!!!!!");
             gate.remove(index);
         }
         Ok(())
@@ -75,12 +75,12 @@ impl App {
 
     #[allow(dead_code)]
     pub fn set_scroll(&mut self, height: usize) {
-        let mut scroll = self.message_scroll.write();
+        let mut scroll = self.message_scroll.try_write().expect("failed!!!!!");
         *scroll = height;
     }
 
     pub fn get_scroll(&self) -> usize {
-        *self.message_scroll.read()
+        *self.message_scroll.try_read().expect("failed!!!!!")
     }
 }
 
@@ -97,7 +97,7 @@ fn run_calc(app: App) {
             let item = MCI::template_new_with_box(rng, name.clone());
             match mci.get(&name) {
                 Some(s) => {
-                    s.lock().unwrap().push(item);
+                    s.lock().expect("failed!!!!!").push(item);
                 }
                 None => {
                     let mut new_vec = Vec::new();
@@ -109,14 +109,14 @@ fn run_calc(app: App) {
     }
     let mut mci = mci
         .into_iter()
-        .map(|(k, v)| (k, v.into_inner().unwrap()))
+        .map(|(k, v)| (k, v.into_inner().expect("failed!!!!!")))
         .collect::<HashMap<String, Vec<MCI>>>();
     let gate_impl = mci
         .keys()
         .map(|k| (k.clone(), RwLock::new(0)))
         .collect::<Vec<_>>();
     {
-        let mut gate = app.progress_gage.write();
+        let mut gate = app.progress_gage.try_write().expect("failed!!!!!");
         *gate = gate_impl;
     }
     let start_time = std::time::Instant::now();
@@ -128,27 +128,27 @@ fn run_calc(app: App) {
                 .par_iter_mut()
                 .map(|mc| {
                     let err = mc.err(1000000);
-                    let gate = app.progress_gage.read();
-                    let index = gate
+                    let gate = app.progress_gage.try_read().expect("failed!!!!!");
+                    let index = (*gate)
                         .iter()
                         .position(|x| x.0 == name.clone())
                         .ok_or(anyhow!("not found"))
-                        .unwrap();
+                        .expect("failed!!!!!");
                     {
-                        *gate[index].1.write() += 1;
+                        *gate[index].1.try_write().expect("failed!!!!!") += 1;
                     }
                     err
                 })
                 .collect::<Vec<_>>();
             let max = err
                 .iter()
-                .max_by(|a, b| a.partial_cmp(b).unwrap())
-                .unwrap()
+                .max_by(|a, b| a.partial_cmp(b).expect("failed!!!!!"))
+                .expect("failed!!!!!")
                 .clone();
             let min = err
                 .iter()
-                .min_by(|a, b| a.partial_cmp(b).unwrap())
-                .unwrap()
+                .min_by(|a, b| a.partial_cmp(b).expect("failed!!!!!"))
+                .expect("failed!!!!!")
                 .clone();
             let sum = err.iter().sum::<f64>();
             let len = err.len() as f64;
@@ -173,14 +173,14 @@ fn run_calc(app: App) {
         })
         .collect::<Vec<_>>();
 
-    serde_json::to_writer(std::fs::File::create("err.json").unwrap(), &err)
+    serde_json::to_writer(std::fs::File::create("err.json").expect("failed!!!!!"), &err)
         .expect("json write failed");
 }
 
 pub fn terminal_event_loop() -> Result<()> {
     let mut stdout = std::io::stdout();
     enable_raw_mode()?;
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture).unwrap();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture).expect("failed!!!!!");
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).expect("Failed to initialize terminal");
 
@@ -236,7 +236,7 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
                     crossterm::event::KeyCode::Up => {
                         press_down = !press_down;
                         if press_down {
-                            let mut scroll = app.message_scroll.write();
+                            let mut scroll = app.message_scroll.try_write().expect("failed!!!!!");
                             if *scroll > 0 {
                                 *scroll -= 1;
                             }
@@ -244,10 +244,10 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
                     }
                     // Down
                     crossterm::event::KeyCode::Down => {
-                        let max = app.messages.read().len();
+                        let max = app.messages.try_read().expect("failed!!!!!").len();
                         press_up = !press_up;
                         if press_up {
-                            let mut scroll = app.message_scroll.write();
+                            let mut scroll = app.message_scroll.try_write().expect("failed!!!!!");
                             if *scroll < max {
                                 *scroll += 1;
                             }
@@ -274,7 +274,7 @@ fn ui(f: &mut Frame, app: &App) {
         .constraints(
             [
                 Constraint::Percentage(100),
-                Constraint::Min(app.progress_gage.read().len() as u16 + 1),
+                Constraint::Min(app.progress_gage.try_read().expect("failed!!!!!").len() as u16 + 1),
             ]
             .as_ref(),
         )
@@ -286,8 +286,8 @@ fn ui(f: &mut Frame, app: &App) {
     //     .constraints([Constraint::Length(90), Constraint::Percentage(10)].as_ref())
     //     .split(windows[0]);
     {
-        let app_messages = app.messages.read();
-        let messages = (*app_messages)
+        let app_messages = app.messages.try_read();
+        let messages = (*app_messages.expect("failed!!!!!"))
             .iter()
             .flat_map(|x| x.0.split('\n').collect::<Vec<&str>>())
             .enumerate()
@@ -318,7 +318,7 @@ fn ui(f: &mut Frame, app: &App) {
         );
     }
     {
-        let app_progress_gage = app.progress_gage.read();
+        let app_progress_gage = app.progress_gage.try_read().expect("failed!!!!!");
         let constrains = app_progress_gage
             .iter()
             .map(|_| Constraint::Min(1))
@@ -329,7 +329,7 @@ fn ui(f: &mut Frame, app: &App) {
             .constraints(constrains)
             .split(chunks[1]);
         for (i, (name, lock)) in app_progress_gage.iter().enumerate() {
-            let gage = lock.read();
+            let gage = lock.try_read().expect("failed!!!!!");
             let gage = *gage as u16;
             let layout = Layout::default()
                 .direction(Direction::Horizontal)
@@ -358,7 +358,7 @@ fn ui(f: &mut Frame, app: &App) {
     }
     // view graph
     {
-        let app_message = app.messages.read();
+        let app_message = app.messages.try_read().expect("failed!!!!!");
         if app_message.len() == 0 {
             return;
         }
@@ -431,7 +431,7 @@ pub fn wrap_with_type_name<T: RNG + 'static + Send + Sync>(
         std::any::type_name::<T>()
             .split("::")
             .last()
-            .unwrap()
+            .expect("failed!!!!!")
             .into(),
     )
 }
