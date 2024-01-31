@@ -16,7 +16,7 @@ fn main() {
     mci.push(Arc::new(Mutex::new(MCI::template_new(Arc4::new()))));
     mci.push(Arc::new(Mutex::new(MCI::template_new(ChaCha20::new()))));
     mci.push(Arc::new(Mutex::new(MCI::template_new(Fortuna::new()))));
-    mci.push(Arc::new(Mutex::new(MCI::template_new(GjRng::new()))));
+    // mci.push(Arc::new(Mutex::new(MCI::template_new(GjRng::new()))));
     mci.push(Arc::new(Mutex::new(MCI::template_new(Hc128Rng::new()))));
     mci.push(Arc::new(Mutex::new(MCI::template_new(IsaacRng::new()))));
     mci.push(Arc::new(Mutex::new(MCI::template_new(JitterRng::new()))));
@@ -42,7 +42,7 @@ fn main() {
     mci.push(Arc::new(Mutex::new(MCI::template_new(Sfc64Rng::new()))));
     mci.push(Arc::new(Mutex::new(MCI::template_new(ShiShuA::new()))));
     mci.push(Arc::new(Mutex::new(MCI::template_new(SplitMix64::new()))));
-    mci.push(Arc::new(Mutex::new(MCI::template_new(Velox3bRng::new()))));
+    // mci.push(Arc::new(Mutex::new(MCI::template_new(Velox3bRng::new()))));
     mci.push(Arc::new(Mutex::new(MCI::template_new(WyRand::new()))));
     mci.push(Arc::new(Mutex::new(MCI::template_new(Xorshift128::new()))));
     mci.push(Arc::new(Mutex::new(MCI::template_new(

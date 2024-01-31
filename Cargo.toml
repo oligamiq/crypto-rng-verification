@@ -28,7 +28,7 @@ rand_hc = "0.3.2"
 nanorand = "0.7.0"
 ranluxpp-rs = "0.3.0"
 rand_isaac = "0.3.0"
-# small_rngs = { version = "0.0.1", git = "https://github.com/oligamiq/small-rngs" }
+small_rngs = { version = "0.0.1", git = "https://github.com/oligamiq/small-rngs" }
 rand_jitter = "0.4.0"
 randen = "0.0.0" # use i128 so nightly
 philox = { version = "0.0.0", git = "https://github.com/dominikwerder/philox" }
@@ -36,4 +36,4 @@ acorn_prng = "3.0.1"
 r30_rs = "0.1.0"
 prandom = "0.1.0"
 crypto_api_osrandom = "0.2.0"
-rand = { version = "0.8.5", features = ["small_rng"]}
+rand = { version = "0.8.5" }

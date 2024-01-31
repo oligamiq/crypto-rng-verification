@@ -1,4 +1,5 @@
-use rand_chacha::rand_core::{RngCore as _, SeedableRng as _};
+use rand::Rng as _;
+use rand_chacha::rand_core::SeedableRng as _;
 use small_rngs::Velox3bRng as ImplVelox3bRng;
 
 use crate::rng_trait::RNG;
@@ -18,9 +19,7 @@ impl Velox3bRng {
 
 impl RNG for Velox3bRng {
     fn get_random(&mut self) -> u64 {
-        let a = self.velox3brng.next_u32();
-        let b = self.velox3brng.next_u32();
-        a as u64 | ((b as u64) << 32)
+        self.velox3brng.gen()
     }
 }
 

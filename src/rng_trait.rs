@@ -41,7 +41,6 @@ pub fn crypto_random<const LEN: usize>() -> [u8; LEN] {
     for i in 0..LEN {
         r[i] = rng.pop().unwrap();
     }
-    println!("{:?}", r);
     r
 }
 
