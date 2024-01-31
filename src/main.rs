@@ -18,10 +18,10 @@ use anyhow::{anyhow, Result};
 use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Margin},
+    style::{Color, Style},
     text::{Line, Span},
     widgets::{
-        Block, Borders, Paragraph, Scrollbar,
-        ScrollbarOrientation, ScrollbarState,
+        Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Sparkline,
     },
     Frame, Terminal,
 };
@@ -73,7 +73,7 @@ fn main() -> Result<()> {
 
 fn run_calc(app: App) {
     let mut mci: HashMap<String, Mutex<Vec<MCI>>> = HashMap::new();
-    for _ in 0..10 {
+    for _ in 0..100 {
         push_all(&mut mci, |(rng, name), mci| {
             let item = MCI::template_new_with_box(rng, name.clone());
             match mci.get(&name) {
@@ -116,27 +116,26 @@ fn run_calc(app: App) {
             let len = err.len() as f64;
             let avg = sum / len;
             app.clone()
-                .add_message(format!(
-                    "{:<18} max: {:<10}, min: {:<10}, avg: {:<10}, time: {}",
-                    name,
-                    max.to_string().split_at(10).0,
-                    min.to_string().split_at(10).0,
-                    avg.to_string().split_at(10).0,
-                    std::time::Instant::now()
-                        .duration_since(start_time)
-                        .as_secs_f64()
-                ),
-                (name.clone(), err.clone()))
+                .add_message(
+                    format!(
+                        "{:<18} max: {:<10}, min: {:<10}, avg: {:<10}, time: {}",
+                        name,
+                        max.to_string().split_at(10).0,
+                        min.to_string().split_at(10).0,
+                        avg.to_string().split_at(10).0,
+                        std::time::Instant::now()
+                            .duration_since(start_time)
+                            .as_secs_f64()
+                    ),
+                    (name.clone(), err.clone()),
+                )
                 .expect("message write failed");
             (name.clone(), (max, min, avg, err))
         })
         .collect::<Vec<_>>();
 
-    serde_json::to_writer(
-        std::fs::File::create("err.json").unwrap(),
-        &err
-    ).expect("json write failed");
-
+    serde_json::to_writer(std::fs::File::create("err.json").unwrap(), &err)
+        .expect("json write failed");
 }
 
 pub fn terminal_event_loop() -> Result<()> {
@@ -217,11 +216,11 @@ fn ui(f: &mut Frame, app: &App) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(f.size());
 
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .margin(2)
-        .constraints([Constraint::Length(90), Constraint::Percentage(10)].as_ref())
-        .split(windows[0]);
+    // let chunks = Layout::default()
+    //     .direction(Direction::Vertical)
+    //     .margin(2)
+    //     .constraints([Constraint::Length(90), Constraint::Percentage(10)].as_ref())
+    //     .split(windows[0]);
     {
         let app_messages = app.messages.read().unwrap();
         let messages = (*app_messages)
@@ -254,7 +253,28 @@ fn ui(f: &mut Frame, app: &App) {
             &mut scrollbar_state,
         );
     }
+    // view graph
+    {
+        let app_message = app.messages.read().unwrap();
+        if app_message.len() == 0 {
+            return;
+        }
+        let data = (*app_message)[app.get_scroll()].1.clone();
+        let title = data.0;
+        // u64に変える
+        let data = data
+            .1
+            .iter()
+            .map(|x| ((0.1 + x) * (1e+10)).round() as u64)
+            .collect::<Vec<_>>();
 
+        let sparkline = Sparkline::default()
+            .block(Block::default().title(title).borders(Borders::ALL))
+            .data(data.as_slice())
+            .style(Style::default().fg(Color::Red));
+
+        f.render_widget(sparkline, windows[0]);
+    }
 }
 
 pub fn push_all<T, U>(mci: &mut T, f: U)
