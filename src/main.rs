@@ -58,11 +58,12 @@ impl App {
             msg.push((message, data.clone()));
         }
         // progress_gateから消す
-        let gate = self.progress_gage.read().map_err(|e| anyhow!("{}", e))?;
-        let index = gate
-            .iter()
-            .position(|x| x.0 == data.0)
-            .ok_or(anyhow!("not found"))?;
+        let index = {
+            let gate = self.progress_gage.read().map_err(|e| anyhow!("{}", e))?;
+            gate.iter()
+                .position(|x| x.0 == data.0)
+                .ok_or(anyhow!("not found"))?
+        };
         {
             let mut gate = self.progress_gage.write().map_err(|e| anyhow!("{}", e))?;
             gate.remove(index);
