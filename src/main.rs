@@ -19,9 +19,11 @@ use ratatui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Margin},
     style::{Color, Style},
+    symbols,
     text::{Line, Span},
     widgets::{
-        Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Sparkline,
+        Block, Borders, LineGauge, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+        Sparkline,
     },
     Frame, Terminal,
 };
@@ -36,6 +38,7 @@ pub mod rng_trait;
 struct App {
     messages: Arc<RwLock<Vec<(String, (String, Vec<f64>))>>>,
     message_scroll: Arc<RwLock<usize>>,
+    progress_gage: Arc<RwLock<Vec<(String, RwLock<usize>)>>>,
 }
 
 impl App {
@@ -44,13 +47,21 @@ impl App {
         App {
             messages: Arc::new(RwLock::new(Vec::new())),
             message_scroll: Arc::new(RwLock::new(0)),
+            progress_gage: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
     /// Adds a message to the message list
     pub fn add_message(&mut self, message: String, data: (String, Vec<f64>)) -> Result<()> {
         let mut msg = self.messages.write().map_err(|e| anyhow!("{}", e))?;
-        msg.push((message, data));
+        msg.push((message, data.clone()));
+        // progress_gateから消す
+        let mut gate = self.progress_gage.write().map_err(|e| anyhow!("{}", e))?;
+        let index = gate
+            .iter()
+            .position(|x| x.0 == data.0)
+            .ok_or(anyhow!("not found"))?;
+        gate.remove(index);
         Ok(())
     }
 
@@ -92,7 +103,13 @@ fn run_calc(app: App) {
         .into_iter()
         .map(|(k, v)| (k, v.into_inner().unwrap()))
         .collect::<HashMap<String, Vec<MCI>>>();
-
+    {
+        let mut gate = app.progress_gage.write().unwrap();
+        *gate = mci
+            .keys()
+            .map(|k| (k.clone(), RwLock::new(0)))
+            .collect::<Vec<_>>();
+    }
     let start_time = std::time::Instant::now();
 
     let err = mci
@@ -100,7 +117,17 @@ fn run_calc(app: App) {
         .map(|(name, mc)| {
             let err = mc
                 .par_iter_mut()
-                .map(|mc| mc.err(1000000))
+                .map(|mc| {
+                    let err = mc.err(1000000);
+                    let gate = app.progress_gage.read().unwrap();
+                    let index = gate
+                        .iter()
+                        .position(|x| x.0 == name.clone())
+                        .ok_or(anyhow!("not found"))
+                        .unwrap();
+                    *gate[index].1.write().unwrap() += 1;
+                    err
+                })
                 .collect::<Vec<_>>();
             let max = err
                 .iter()
@@ -170,41 +197,43 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
 
     loop {
         terminal.draw(|f| ui(f, &app))?;
-        match crossterm::event::read()? {
-            crossterm::event::Event::Key(key) => match key.code {
-                crossterm::event::KeyCode::Char('q') => break,
-                crossterm::event::KeyCode::Esc => break,
-                // Ctrl+C
-                crossterm::event::KeyCode::Char('c')
-                    if key
-                        .modifiers
-                        .contains(crossterm::event::KeyModifiers::CONTROL) =>
-                {
-                    break
-                }
-                // Ctrl+D
-                crossterm::event::KeyCode::Char('d')
-                    if key
-                        .modifiers
-                        .contains(crossterm::event::KeyModifiers::CONTROL) =>
-                {
-                    break
-                }
-                // Up
-                crossterm::event::KeyCode::Up => {
-                    let mut scroll = app.message_scroll.write().unwrap();
-                    if *scroll > 0 {
-                        *scroll -= 1;
+        if crossterm::event::poll(std::time::Duration::from_millis(100))? {
+            match crossterm::event::read()? {
+                crossterm::event::Event::Key(key) => match key.code {
+                    crossterm::event::KeyCode::Char('q') => break,
+                    crossterm::event::KeyCode::Esc => break,
+                    // Ctrl+C
+                    crossterm::event::KeyCode::Char('c')
+                        if key
+                            .modifiers
+                            .contains(crossterm::event::KeyModifiers::CONTROL) =>
+                    {
+                        break
                     }
-                }
-                // Down
-                crossterm::event::KeyCode::Down => {
-                    let mut scroll = app.message_scroll.write().unwrap();
-                    *scroll += 1;
-                }
+                    // Ctrl+D
+                    crossterm::event::KeyCode::Char('d')
+                        if key
+                            .modifiers
+                            .contains(crossterm::event::KeyModifiers::CONTROL) =>
+                    {
+                        break
+                    }
+                    // Up
+                    crossterm::event::KeyCode::Up => {
+                        let mut scroll = app.message_scroll.write().unwrap();
+                        if *scroll > 0 {
+                            *scroll -= 1;
+                        }
+                    }
+                    // Down
+                    crossterm::event::KeyCode::Down => {
+                        let mut scroll = app.message_scroll.write().unwrap();
+                        *scroll += 1;
+                    }
+                    _ => {}
+                },
                 _ => {}
-            },
-            _ => {}
+            }
         }
     }
     Ok(())
@@ -215,6 +244,18 @@ fn ui(f: &mut Frame, app: &App) {
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(f.size());
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(0)
+        .constraints(
+            [
+                Constraint::Percentage(100),
+                Constraint::Min(app.progress_gage.read().unwrap().len() as u16 + 1),
+            ]
+            .as_ref(),
+        )
+        .split(windows[1]);
 
     // let chunks = Layout::default()
     //     .direction(Direction::Vertical)
@@ -243,15 +284,54 @@ fn ui(f: &mut Frame, app: &App) {
         let mut scrollbar_state =
             ScrollbarState::new(messages.iter().len()).position(vertical_scroll);
 
-        f.render_widget(message_paragraph, windows[1]);
+        f.render_widget(message_paragraph, chunks[0]);
         f.render_stateful_widget(
             scroll_bar,
-            windows[1].inner(&Margin {
+            chunks[0].inner(&Margin {
                 vertical: 1,
                 horizontal: 0,
             }), // using a inner vertical margin of 1 unit makes the scrollbar inside the block
             &mut scrollbar_state,
         );
+    }
+    {
+        let app_progress_gage = app.progress_gage.read().unwrap();
+        let constrains = app_progress_gage
+            .iter()
+            .map(|_| Constraint::Min(1))
+            .collect::<Vec<_>>();
+        let progress = Layout::default()
+            .direction(Direction::Vertical)
+            .margin(0)
+            .constraints(constrains)
+            .split(chunks[1]);
+        for (i, (name, lock)) in app_progress_gage.iter().enumerate() {
+            let gage = lock.read().unwrap();
+            let gage = *gage as u16;
+            let layout = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Min(18), Constraint::Percentage(100)])
+                .split(progress[i]);
+            let mut block = Block::default()
+                .border_set(symbols::border::PLAIN)
+                .borders(Borders::RIGHT);
+            if i == app_progress_gage.len() - 1 {
+                block = block.borders(Borders::RIGHT | Borders::BOTTOM);
+            }
+            let gage = LineGauge::default()
+                .block(block)
+                .gauge_style(Style::default().fg(Color::Green))
+                .ratio(gage as f64 / 100.0);
+            f.render_widget(gage, layout[1]);
+            let mut block = Block::default()
+                .border_set(symbols::border::PLAIN)
+                .borders(Borders::LEFT);
+            if i == app_progress_gage.len() - 1 {
+                block = block.borders(Borders::LEFT | Borders::BOTTOM);
+            }
+            let name = Paragraph::new(name.clone()).block(block);
+            f.render_widget(name, layout[0]);
+        }
     }
     // view graph
     {
