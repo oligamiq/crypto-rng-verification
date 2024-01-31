@@ -145,7 +145,7 @@ fn run_calc(app: App) {
             app.clone()
                 .add_message(
                     format!(
-                        "{:<18} max: {:<10}, min: {:<10}, avg: {:<10}, time: {}",
+                        "{:<20} max: {:<10}, min: {:<10}, avg: {:<10}, time: {}",
                         name,
                         max.to_string().split_at(10).0,
                         min.to_string().split_at(10).0,
@@ -197,7 +197,7 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
 
     loop {
         terminal.draw(|f| ui(f, &app))?;
-        if crossterm::event::poll(std::time::Duration::from_millis(100))? {
+        if crossterm::event::poll(std::time::Duration::from_millis(500))? {
             match crossterm::event::read()? {
                 crossterm::event::Event::Key(key) => match key.code {
                     crossterm::event::KeyCode::Char('q') => break,
@@ -310,7 +310,7 @@ fn ui(f: &mut Frame, app: &App) {
             let gage = *gage as u16;
             let layout = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([Constraint::Min(18), Constraint::Percentage(100)])
+                .constraints([Constraint::Min(20), Constraint::Percentage(100)])
                 .split(progress[i]);
             let mut block = Block::default()
                 .border_set(symbols::border::PLAIN)
@@ -353,10 +353,12 @@ fn ui(f: &mut Frame, app: &App) {
             .map(|x| ((0.1 + x) * (1e+10)).round() as u64)
             .collect::<Vec<_>>();
 
+        let ave = data.iter().sum::<u64>() as f64 / data.len() as f64;
+
         let sparkline = Sparkline::default()
             .block(Block::default().title(title).borders(Borders::ALL))
             .data(data.as_slice())
-            .style(Style::default().fg(Color::Red));
+            .style(Style::default().fg(if ave > 1.0 { Color::Red } else { Color::Green }));
 
         f.render_widget(sparkline, windows[0]);
     }
