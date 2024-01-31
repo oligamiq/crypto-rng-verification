@@ -19,6 +19,9 @@ https://github.com/oligamiq/crypto-rng-verification
 ！試したところ動かなかったライブラリは、幾つかフォークしたものを指しているため、注意。
 既に受け入れられたプルリクもあるため、順次直していく。
 
+# 問題点
+構造と理解の不足により、結構な確率でデッドロックを起こす模様。いつか直せるようになりたい
+
 # Crypto
 ! Information Missing
 ## rc4 (Arc4)
