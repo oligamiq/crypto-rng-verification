@@ -53,15 +53,20 @@ impl App {
 
     /// Adds a message to the message list
     pub fn add_message(&mut self, message: String, data: (String, Vec<f64>)) -> Result<()> {
-        let mut msg = self.messages.write().map_err(|e| anyhow!("{}", e))?;
-        msg.push((message, data.clone()));
+        {
+            let mut msg = self.messages.write().map_err(|e| anyhow!("{}", e))?;
+            msg.push((message, data.clone()));
+        }
         // progress_gateから消す
-        let mut gate = self.progress_gage.write().map_err(|e| anyhow!("{}", e))?;
+        let gate = self.progress_gage.read().map_err(|e| anyhow!("{}", e))?;
         let index = gate
             .iter()
             .position(|x| x.0 == data.0)
             .ok_or(anyhow!("not found"))?;
-        gate.remove(index);
+        {
+            let mut gate = self.progress_gage.write().map_err(|e| anyhow!("{}", e))?;
+            gate.remove(index);
+        }
         Ok(())
     }
 
@@ -103,12 +108,13 @@ fn run_calc(app: App) {
         .into_iter()
         .map(|(k, v)| (k, v.into_inner().unwrap()))
         .collect::<HashMap<String, Vec<MCI>>>();
+    let gate_impl = mci
+        .keys()
+        .map(|k| (k.clone(), RwLock::new(0)))
+        .collect::<Vec<_>>();
     {
         let mut gate = app.progress_gage.write().unwrap();
-        *gate = mci
-            .keys()
-            .map(|k| (k.clone(), RwLock::new(0)))
-            .collect::<Vec<_>>();
+        *gate = gate_impl;
     }
     let start_time = std::time::Instant::now();
 
@@ -125,7 +131,9 @@ fn run_calc(app: App) {
                         .position(|x| x.0 == name.clone())
                         .ok_or(anyhow!("not found"))
                         .unwrap();
-                    *gate[index].1.write().unwrap() += 1;
+                    {
+                        *gate[index].1.write().unwrap() += 1;
+                    }
                     err
                 })
                 .collect::<Vec<_>>();
