@@ -259,7 +259,12 @@ fn ui(f: &mut Frame, app: &App) {
         if app_message.len() == 0 {
             return;
         }
-        let data = (*app_message)[app.get_scroll()].1.clone();
+        let index = if app.get_scroll() >= app_message.len() {
+            app_message.len() - 1
+        } else {
+            app.get_scroll()
+        };
+        let data = (*app_message)[index].1.clone();
         let title = data.0;
         // u64に変える
         let data = data
