@@ -11,6 +11,11 @@ description = "A library for verifying the randomness of a random number generat
 [dependencies]
 # support
 rayon = "1.8"
+parking_lot = "0.12"
+
+# output
+serde = "1.0"
+serde_json = "1.0"
 
 # UI
 ratatui = "0.25"
@@ -42,5 +47,3 @@ prandom = "0.1.0"
 crypto_api_osrandom = "0.2.0"
 rand = { version = "0.8.5" }
 anyhow = "1.0.79"
-serde = "1.0.196"
-serde_json = "1.0.113"

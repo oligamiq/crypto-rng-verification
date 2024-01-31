@@ -2,9 +2,11 @@ pub mod monte_carlo_integration;
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex},
     thread,
 };
+
+use parking_lot::RwLock;
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -54,18 +56,18 @@ impl App {
     /// Adds a message to the message list
     pub fn add_message(&mut self, message: String, data: (String, Vec<f64>)) -> Result<()> {
         {
-            let mut msg = self.messages.write().map_err(|e| anyhow!("{}", e))?;
+            let mut msg = self.messages.write();
             msg.push((message, data.clone()));
         }
         // progress_gateから消す
         let index = {
-            let gate = self.progress_gage.read().map_err(|e| anyhow!("{}", e))?;
+            let gate = self.progress_gage.read();
             gate.iter()
                 .position(|x| x.0 == data.0)
                 .ok_or(anyhow!("not found"))?
         };
         {
-            let mut gate = self.progress_gage.write().map_err(|e| anyhow!("{}", e))?;
+            let mut gate = self.progress_gage.write();
             gate.remove(index);
         }
         Ok(())
@@ -73,12 +75,12 @@ impl App {
 
     #[allow(dead_code)]
     pub fn set_scroll(&mut self, height: usize) {
-        let mut scroll = self.message_scroll.write().unwrap();
+        let mut scroll = self.message_scroll.write();
         *scroll = height;
     }
 
     pub fn get_scroll(&self) -> usize {
-        *self.message_scroll.read().unwrap()
+        *self.message_scroll.read()
     }
 }
 
@@ -114,7 +116,7 @@ fn run_calc(app: App) {
         .map(|k| (k.clone(), RwLock::new(0)))
         .collect::<Vec<_>>();
     {
-        let mut gate = app.progress_gage.write().unwrap();
+        let mut gate = app.progress_gage.write();
         *gate = gate_impl;
     }
     let start_time = std::time::Instant::now();
@@ -126,14 +128,14 @@ fn run_calc(app: App) {
                 .par_iter_mut()
                 .map(|mc| {
                     let err = mc.err(1000000);
-                    let gate = app.progress_gage.read().unwrap();
+                    let gate = app.progress_gage.read();
                     let index = gate
                         .iter()
                         .position(|x| x.0 == name.clone())
                         .ok_or(anyhow!("not found"))
                         .unwrap();
                     {
-                        *gate[index].1.write().unwrap() += 1;
+                        *gate[index].1.write() += 1;
                     }
                     err
                 })
@@ -151,9 +153,8 @@ fn run_calc(app: App) {
             let sum = err.iter().sum::<f64>();
             let len = err.len() as f64;
             let avg = sum / len;
-            app.clone()
-                .add_message(
-                    format!(
+            let tmp =
+                    (format!(
                         "{:<20} max: {:<10}, min: {:<10}, avg: {:<10}, time: {}",
                         name,
                         max.to_string().split_at(10).0,
@@ -163,7 +164,9 @@ fn run_calc(app: App) {
                             .duration_since(start_time)
                             .as_secs_f64()
                     ),
-                    (name.clone(), err.clone()),
+                    (name.clone(), err.clone()));
+            app.clone()
+                .add_message(tmp.0, tmp.1
                 )
                 .expect("message write failed");
             (name.clone(), (max, min, avg, err))
@@ -233,7 +236,7 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
                     crossterm::event::KeyCode::Up => {
                         press_down = !press_down;
                         if press_down {
-                            let mut scroll = app.message_scroll.write().unwrap();
+                            let mut scroll = app.message_scroll.write();
                             if *scroll > 0 {
                                 *scroll -= 1;
                             }
@@ -241,10 +244,10 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
                     }
                     // Down
                     crossterm::event::KeyCode::Down => {
-                        let max = app.messages.read().unwrap().len();
+                        let max = app.messages.read().len();
                         press_up = !press_up;
                         if press_up {
-                            let mut scroll = app.message_scroll.write().unwrap();
+                            let mut scroll = app.message_scroll.write();
                             if *scroll < max {
                                 *scroll += 1;
                             }
@@ -271,7 +274,7 @@ fn ui(f: &mut Frame, app: &App) {
         .constraints(
             [
                 Constraint::Percentage(100),
-                Constraint::Min(app.progress_gage.read().unwrap().len() as u16 + 1),
+                Constraint::Min(app.progress_gage.read().len() as u16 + 1),
             ]
             .as_ref(),
         )
@@ -283,7 +286,7 @@ fn ui(f: &mut Frame, app: &App) {
     //     .constraints([Constraint::Length(90), Constraint::Percentage(10)].as_ref())
     //     .split(windows[0]);
     {
-        let app_messages = app.messages.read().unwrap();
+        let app_messages = app.messages.read();
         let messages = (*app_messages)
             .iter()
             .flat_map(|x| x.0.split('\n').collect::<Vec<&str>>())
@@ -315,7 +318,7 @@ fn ui(f: &mut Frame, app: &App) {
         );
     }
     {
-        let app_progress_gage = app.progress_gage.read().unwrap();
+        let app_progress_gage = app.progress_gage.read();
         let constrains = app_progress_gage
             .iter()
             .map(|_| Constraint::Min(1))
@@ -326,7 +329,7 @@ fn ui(f: &mut Frame, app: &App) {
             .constraints(constrains)
             .split(chunks[1]);
         for (i, (name, lock)) in app_progress_gage.iter().enumerate() {
-            let gage = lock.read().unwrap();
+            let gage = lock.read();
             let gage = *gage as u16;
             let layout = Layout::default()
                 .direction(Direction::Horizontal)
@@ -355,7 +358,7 @@ fn ui(f: &mut Frame, app: &App) {
     }
     // view graph
     {
-        let app_message = app.messages.read().unwrap();
+        let app_message = app.messages.read();
         if app_message.len() == 0 {
             return;
         }

@@ -318,6 +318,7 @@ dependencies = [
  "mersenne-twister-m",
  "nanorand",
  "park-miller-carta-prng",
+ "parking_lot",
  "philox",
  "prandom",
  "r30_rs",
