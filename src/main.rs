@@ -204,9 +204,11 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
     let app_clone = app.clone();
     thread::spawn(move || run_calc(app_clone));
 
+    let mut press_down = false;
+    let mut press_up = false;
     loop {
         terminal.draw(|f| ui(f, &app))?;
-        if crossterm::event::poll(std::time::Duration::from_millis(500))? {
+        if crossterm::event::poll(std::time::Duration::from_millis(1000))? {
             match crossterm::event::read()? {
                 crossterm::event::Event::Key(key) => match key.code {
                     crossterm::event::KeyCode::Char('q') => break,
@@ -229,15 +231,24 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
                     }
                     // Up
                     crossterm::event::KeyCode::Up => {
-                        let mut scroll = app.message_scroll.write().unwrap();
-                        if *scroll > 0 {
-                            *scroll -= 1;
+                        press_down = !press_down;
+                        if press_down {
+                            let mut scroll = app.message_scroll.write().unwrap();
+                            if *scroll > 0 {
+                                *scroll -= 1;
+                            }
                         }
                     }
                     // Down
                     crossterm::event::KeyCode::Down => {
-                        let mut scroll = app.message_scroll.write().unwrap();
-                        *scroll += 1;
+                        let max = app.messages.read().unwrap().len();
+                        press_up = !press_up;
+                        if press_up {
+                            let mut scroll = app.message_scroll.write().unwrap();
+                            if *scroll < max {
+                                *scroll += 1;
+                            }
+                        }
                     }
                     _ => {}
                 },
@@ -355,6 +366,7 @@ fn ui(f: &mut Frame, app: &App) {
         };
         let data = (*app_message)[index].1.clone();
         let title = data.0;
+        let ave = data.1.iter().sum::<f64>() / data.1.len() as f64;
         // u64に変える
         let data = data
             .1
@@ -362,7 +374,6 @@ fn ui(f: &mut Frame, app: &App) {
             .map(|x| ((0.1 + x) * (1e+10)).round() as u64)
             .collect::<Vec<_>>();
 
-        let ave = data.iter().sum::<u64>() as f64 / data.len() as f64;
 
         let sparkline = Sparkline::default()
             .block(Block::default().title(title).borders(Borders::ALL))
