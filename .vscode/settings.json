@@ -1,5 +1,42 @@
 {
   "cSpell.words": [
-    "Ranluxpp"
+    "aesrng",
+    "brng",
+    "chacha",
+    "genrand",
+    "gjrand",
+    "isaacrng",
+    "jitterrng",
+    "lcgrng",
+    "lehmer",
+    "mersenne",
+    "Msws",
+    "mswsrng",
+    "nanorand",
+    "nanos",
+    "nstime",
+    "osrandom",
+    "pcgxsl",
+    "Philox",
+    "prga",
+    "PRNG",
+    "randen",
+    "randenrng",
+    "Ranluxpp",
+    "rngs",
+    "romu",
+    "sapparot",
+    "Seedable",
+    "shishua",
+    "splitmix",
+    "starstar",
+    "subsec",
+    "Velox",
+    "wyrand",
+    "xorshift",
+    "xoshiro"
+  ],
+  "rust-analyzer.linkedProjects": [
+    "./Cargo.toml"
   ]
 }
