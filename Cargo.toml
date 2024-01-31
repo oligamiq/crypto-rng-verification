@@ -12,6 +12,10 @@ description = "A library for verifying the randomness of a random number generat
 # support
 rayon = "1.8"
 
+# UI
+ratatui = "0.25"
+crossterm = "0.27"
+
 # PRNG
 arc4 = "0.1.0"
 rand_chacha = "0.3.1"
@@ -37,3 +41,6 @@ r30_rs = "0.1.0"
 prandom = "0.1.0"
 crypto_api_osrandom = "0.2.0"
 rand = { version = "0.8.5" }
+anyhow = "1.0.79"
+serde = "1.0.196"
+serde_json = "1.0.113"
