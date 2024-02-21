@@ -217,16 +217,8 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
 
     let mut press_down = false;
     let mut press_up = false;
-    let mut repeat_n = 0;
-    let app_messages_clone = Arc::new(RwLock::new((*app.messages.read()).clone()));
     loop {
-        repeat_n += 1;
-        if repeat_n >= 3 {
-            let mut app_messages = app_messages_clone.write();
-            *app_messages = (*app.messages.read()).clone();
-            repeat_n = 0;
-        }
-        terminal.draw(|f| ui(f, &app, app_messages_clone.clone()))?;
+        terminal.draw(|f| ui(f, &app))?;
         if crossterm::event::poll(std::time::Duration::from_millis(1000))? {
             match crossterm::event::read()? {
                 crossterm::event::Event::Key(key) => match key.code {
@@ -278,7 +270,7 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
     Ok(())
 }
 
-fn ui(f: &mut Frame, app: &App, app_messages: Arc<RwLock<Vec<(String, (String, Vec<f64>))>>>) {
+fn ui(f: &mut Frame, app: &App) {
     let windows = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
@@ -298,6 +290,8 @@ fn ui(f: &mut Frame, app: &App, app_messages: Arc<RwLock<Vec<(String, (String, V
             .as_ref(),
         )
         .split(windows[1]);
+
+    let app_messages = &app.messages;
 
     {
         let messages = (*app_messages.read())
