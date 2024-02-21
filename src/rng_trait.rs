@@ -3,13 +3,6 @@ use std::ops::Range;
 pub trait RNG {
     fn get_random(&mut self) -> u64;
 
-    // fn gen_range(&mut self, min: f64, max: f64) -> f64 {
-    //     let diff = max - min;
-    //     let r = self.get_random();
-    //     let r = r as f64 / std::u64::MAX as f64;
-    //     r * diff + min
-    // }
-
     fn gen_range(&mut self, range: Range<f64>) -> f64 {
         let diff = range.end - range.start;
         let r = self.get_random();
@@ -27,12 +20,8 @@ pub fn u8_to_u64(buf: &[u8]) -> u64 {
     r
 }
 
-// pub fn crypto_random<const LEN: usize>() -> [u8; LEN] {
-//     let rng = crypto_api_osrandom::to_array().unwrap();
-//     rng
-// }
-
 use rand::prelude::*;
+
 // Rust標準で生成する乱数を返す
 pub fn crypto_random<const LEN: usize>() -> [u8; LEN] {
     let mut rng = rand::thread_rng();

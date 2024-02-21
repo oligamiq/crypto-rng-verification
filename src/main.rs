@@ -6,6 +6,7 @@ use std::{
     thread,
 };
 
+use log::info;
 use parking_lot::RwLock;
 
 use crossterm::{
@@ -32,6 +33,9 @@ use ratatui::{
 use rayon::prelude::*;
 pub use rng::*;
 use rng_trait::RNG;
+use tracing_subscriber::{
+    layer::SubscriberExt as _, util::SubscriberInitExt as _,
+};
 
 pub mod rng_trait;
 
@@ -56,35 +60,36 @@ impl App {
     /// Adds a message to the message list
     pub fn add_message(&mut self, message: String, data: (String, Vec<f64>)) -> Result<()> {
         {
-            let mut msg = self.messages.try_write().expect("failed!!!!!");
+            let mut msg = self.messages.write();
             msg.push((message, data.clone()));
-        }
-        // progress_gateから消す
-        let index = {
-            let gate = self.progress_gage.try_read().expect("failed!!!!!");
-            (*gate).iter()
-                .position(|x| x.0 == data.0)
-                .ok_or(anyhow!("not found"))?
-        };
-        {
-            let mut gate = self.progress_gage.try_write().expect("failed!!!!!");
-            gate.remove(index);
         }
         Ok(())
     }
 
     #[allow(dead_code)]
     pub fn set_scroll(&mut self, height: usize) {
-        let mut scroll = self.message_scroll.try_write().expect("failed!!!!!");
+        let mut scroll = self.message_scroll.write();
         *scroll = height;
     }
 
     pub fn get_scroll(&self) -> usize {
-        *self.message_scroll.try_read().expect("failed!!!!!")
+        *self.message_scroll.read()
     }
 }
 
 fn main() -> Result<()> {
+    // init log on file
+    // let stdout_log = tracing_subscriber::fmt::layer().pretty();
+
+    // // A layer that logs events to a file.
+    let file = std::fs::File::create("debug.log");
+    let file = match file {
+        Ok(file) => file,
+        Err(error) => panic!("Error: {:?}", error),
+    };
+    let debug_log = tracing_subscriber::fmt::layer().with_writer(Arc::new(file)).with_ansi(false);
+    tracing_subscriber::registry().with(debug_log).init();
+
     terminal_event_loop()?;
 
     Ok(())
@@ -116,7 +121,7 @@ fn run_calc(app: App) {
         .map(|k| (k.clone(), RwLock::new(0)))
         .collect::<Vec<_>>();
     {
-        let mut gate = app.progress_gage.try_write().expect("failed!!!!!");
+        let mut gate = app.progress_gage.write();
         *gate = gate_impl;
     }
     let start_time = std::time::Instant::now();
@@ -128,14 +133,14 @@ fn run_calc(app: App) {
                 .par_iter_mut()
                 .map(|mc| {
                     let err = mc.err(1000000);
-                    let gate = app.progress_gage.try_read().expect("failed!!!!!");
+                    let gate = app.progress_gage.read();
                     let index = (*gate)
                         .iter()
                         .position(|x| x.0 == name.clone())
                         .ok_or(anyhow!("not found"))
                         .expect("failed!!!!!");
                     {
-                        *gate[index].1.try_write().expect("failed!!!!!") += 1;
+                        *gate[index].1.write() += 1;
                     }
                     err
                 })
@@ -153,28 +158,31 @@ fn run_calc(app: App) {
             let sum = err.iter().sum::<f64>();
             let len = err.len() as f64;
             let avg = sum / len;
-            let tmp =
-                    (format!(
-                        "{:<20} max: {:<10}, min: {:<10}, avg: {:<10}, time: {}",
-                        name,
-                        max.to_string().split_at(10).0,
-                        min.to_string().split_at(10).0,
-                        avg.to_string().split_at(10).0,
-                        std::time::Instant::now()
-                            .duration_since(start_time)
-                            .as_secs_f64()
-                    ),
-                    (name.clone(), err.clone()));
+            let tmp = (
+                format!(
+                    "{:<20} max: {:<10}, min: {:<10}, avg: {:<10}, time: {}",
+                    name,
+                    max.to_string().split_at(10).0,
+                    min.to_string().split_at(10).0,
+                    avg.to_string().split_at(10).0,
+                    std::time::Instant::now()
+                        .duration_since(start_time)
+                        .as_secs_f64()
+                ),
+                (name.clone(), err.clone()),
+            );
             app.clone()
-                .add_message(tmp.0, tmp.1
-                )
+                .add_message(tmp.0, tmp.1)
                 .expect("message write failed");
             (name.clone(), (max, min, avg, err))
         })
         .collect::<Vec<_>>();
 
-    serde_json::to_writer(std::fs::File::create("err.json").expect("failed!!!!!"), &err)
-        .expect("json write failed");
+    serde_json::to_writer(
+        std::fs::File::create("err.json").expect("failed!!!!!"),
+        &err,
+    )
+    .expect("json write failed");
 }
 
 pub fn terminal_event_loop() -> Result<()> {
@@ -209,8 +217,16 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
 
     let mut press_down = false;
     let mut press_up = false;
+    let mut repeat_n = 0;
+    let app_messages_clone = Arc::new(RwLock::new((*app.messages.read()).clone()));
     loop {
-        terminal.draw(|f| ui(f, &app))?;
+        repeat_n += 1;
+        if repeat_n >= 3 {
+            let mut app_messages = app_messages_clone.write();
+            *app_messages = (*app.messages.read()).clone();
+            repeat_n = 0;
+        }
+        terminal.draw(|f| ui(f, &app, app_messages_clone.clone()))?;
         if crossterm::event::poll(std::time::Duration::from_millis(1000))? {
             match crossterm::event::read()? {
                 crossterm::event::Event::Key(key) => match key.code {
@@ -236,7 +252,7 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
                     crossterm::event::KeyCode::Up => {
                         press_down = !press_down;
                         if press_down {
-                            let mut scroll = app.message_scroll.try_write().expect("failed!!!!!");
+                            let mut scroll = app.message_scroll.write();
                             if *scroll > 0 {
                                 *scroll -= 1;
                             }
@@ -244,10 +260,10 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
                     }
                     // Down
                     crossterm::event::KeyCode::Down => {
-                        let max = app.messages.try_read().expect("failed!!!!!").len();
+                        let max = app.messages.read().len();
                         press_up = !press_up;
                         if press_up {
-                            let mut scroll = app.message_scroll.try_write().expect("failed!!!!!");
+                            let mut scroll = app.message_scroll.write();
                             if *scroll < max {
                                 *scroll += 1;
                             }
@@ -262,11 +278,14 @@ fn run_app<B: Backend>(app: App, terminal: &mut Terminal<B>) -> Result<()> {
     Ok(())
 }
 
-fn ui(f: &mut Frame, app: &App) {
+fn ui(f: &mut Frame, app: &App, app_messages: Arc<RwLock<Vec<(String, (String, Vec<f64>))>>>) {
     let windows = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(f.size());
+
+    let binding = app.progress_gage.read();
+    let progress_gage = (*binding).iter().filter(|p| *p.1.read() < 100).collect::<Vec<_>>();
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -274,20 +293,14 @@ fn ui(f: &mut Frame, app: &App) {
         .constraints(
             [
                 Constraint::Percentage(100),
-                Constraint::Min(app.progress_gage.try_read().expect("failed!!!!!").len() as u16 + 1),
+                Constraint::Min(progress_gage.len() as u16 + 1),
             ]
             .as_ref(),
         )
         .split(windows[1]);
 
-    // let chunks = Layout::default()
-    //     .direction(Direction::Vertical)
-    //     .margin(2)
-    //     .constraints([Constraint::Length(90), Constraint::Percentage(10)].as_ref())
-    //     .split(windows[0]);
     {
-        let app_messages = app.messages.try_read();
-        let messages = (*app_messages.expect("failed!!!!!"))
+        let messages = (*app_messages.read())
             .iter()
             .flat_map(|x| x.0.split('\n').collect::<Vec<&str>>())
             .enumerate()
@@ -296,6 +309,7 @@ fn ui(f: &mut Frame, app: &App) {
                 content
             })
             .collect::<Vec<_>>();
+        info!("{:?}", messages);
         let vertical_scroll = app.get_scroll();
         let message_paragraph = Paragraph::new(messages.clone())
             .scroll((vertical_scroll as u16, 0))
@@ -318,8 +332,7 @@ fn ui(f: &mut Frame, app: &App) {
         );
     }
     {
-        let app_progress_gage = app.progress_gage.try_read().expect("failed!!!!!");
-        let constrains = app_progress_gage
+        let constrains = progress_gage
             .iter()
             .map(|_| Constraint::Min(1))
             .collect::<Vec<_>>();
@@ -328,8 +341,8 @@ fn ui(f: &mut Frame, app: &App) {
             .margin(0)
             .constraints(constrains)
             .split(chunks[1]);
-        for (i, (name, lock)) in app_progress_gage.iter().enumerate() {
-            let gage = lock.try_read().expect("failed!!!!!");
+        for (i, (name, lock)) in progress_gage.iter().enumerate() {
+            let gage = lock.read();
             let gage = *gage as u16;
             let layout = Layout::default()
                 .direction(Direction::Horizontal)
@@ -338,7 +351,7 @@ fn ui(f: &mut Frame, app: &App) {
             let mut block = Block::default()
                 .border_set(symbols::border::PLAIN)
                 .borders(Borders::RIGHT);
-            if i == app_progress_gage.len() - 1 {
+            if i == progress_gage.len() - 1 {
                 block = block.borders(Borders::RIGHT | Borders::BOTTOM);
             }
             let gage = LineGauge::default()
@@ -349,7 +362,7 @@ fn ui(f: &mut Frame, app: &App) {
             let mut block = Block::default()
                 .border_set(symbols::border::PLAIN)
                 .borders(Borders::LEFT);
-            if i == app_progress_gage.len() - 1 {
+            if i == progress_gage.len() - 1 {
                 block = block.borders(Borders::LEFT | Borders::BOTTOM);
             }
             let name = Paragraph::new(name.clone()).block(block);
@@ -358,16 +371,16 @@ fn ui(f: &mut Frame, app: &App) {
     }
     // view graph
     {
-        let app_message = app.messages.try_read().expect("failed!!!!!");
-        if app_message.len() == 0 {
+        let app_messages = app_messages.read();
+        if app_messages.len() == 0 {
             return;
         }
-        let index = if app.get_scroll() >= app_message.len() {
-            app_message.len() - 1
+        let index = if app.get_scroll() >= app_messages.len() {
+            app_messages.len() - 1
         } else {
             app.get_scroll()
         };
-        let data = (*app_message)[index].1.clone();
+        let data = (*app_messages)[index].1.clone();
         let title = data.0;
         let ave = data.1.iter().sum::<f64>() / data.1.len() as f64;
         // u64に変える
@@ -376,7 +389,6 @@ fn ui(f: &mut Frame, app: &App) {
             .iter()
             .map(|x| ((0.1 + x) * (1e+10)).round() as u64)
             .collect::<Vec<_>>();
-
 
         let sparkline = Sparkline::default()
             .block(Block::default().title(title).borders(Borders::ALL))
