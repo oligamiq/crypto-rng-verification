@@ -33,9 +33,7 @@ use ratatui::{
 use rayon::prelude::*;
 pub use rng::*;
 use rng_trait::RNG;
-use tracing_subscriber::{
-    layer::SubscriberExt as _, util::SubscriberInitExt as _,
-};
+use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
 pub mod rng_trait;
 
@@ -59,6 +57,7 @@ impl App {
 
     /// Adds a message to the message list
     pub fn add_message(&mut self, message: String, data: (String, Vec<f64>)) -> Result<()> {
+        info!("add message: {}", &message);
         {
             let mut msg = self.messages.write();
             msg.push((message, data.clone()));
@@ -68,6 +67,7 @@ impl App {
 
     #[allow(dead_code)]
     pub fn set_scroll(&mut self, height: usize) {
+        info!("set scroll: {}", height);
         let mut scroll = self.message_scroll.write();
         *scroll = height;
     }
@@ -87,7 +87,9 @@ fn main() -> Result<()> {
         Ok(file) => file,
         Err(error) => panic!("Error: {:?}", error),
     };
-    let debug_log = tracing_subscriber::fmt::layer().with_writer(Arc::new(file)).with_ansi(false);
+    let debug_log = tracing_subscriber::fmt::layer()
+        .with_writer(Arc::new(file))
+        .with_ansi(false);
     tracing_subscriber::registry().with(debug_log).init();
 
     terminal_event_loop()?;
@@ -277,7 +279,10 @@ fn ui(f: &mut Frame, app: &App) {
         .split(f.size());
 
     let binding = app.progress_gage.read();
-    let progress_gage = (*binding).iter().filter(|p| *p.1.read() < 100).collect::<Vec<_>>();
+    let progress_gage = (*binding)
+        .iter()
+        .filter(|p| *p.1.read() < 100)
+        .collect::<Vec<_>>();
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -303,7 +308,6 @@ fn ui(f: &mut Frame, app: &App) {
                 content
             })
             .collect::<Vec<_>>();
-        info!("{:?}", messages);
         let vertical_scroll = app.get_scroll();
         let message_paragraph = Paragraph::new(messages.clone())
             .scroll((vertical_scroll as u16, 0))
